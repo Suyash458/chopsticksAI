@@ -129,7 +129,7 @@ def condition_matrix(from_states, to_states, state_matrix):
     for state in from_states.keys():
         for transition in get_possible_transitions(state[0], state[1], True):
             if not any(transition[1]):
-                state_matrix[from_states[state], to_states[transition]] = 100
+                state_matrix[from_states[state], to_states[transition]] = 2000
     return state_matrix
 
 def train(num_tries=100000):
@@ -145,36 +145,36 @@ def train(num_tries=100000):
     '''
     get_indices()
     from_states, to_states, state_matrix = get_matrix()
-    discount = 0.25
-    discount_step = 2.0/num_tries
-    discount_rate = 1 + discount_step
-    learning_rate = 0.9
+    init_learning_rate = 0.8
     learning_decay_step = 1.0/num_tries
-    learning_decay = 1 + decay_step
+    learning_decay = 1 
+    reward = 350
     state_matrix = condition_matrix(from_states, to_states, state_matrix)
     for i in xrange(num_tries):
+        learning_rate = init_learning_rate/learning_decay  
+        init_discount = 0.5
+        #learning_decay += learning_decay_step
         game = play_game()
-        reward = 250/len(game)
+        discount_step = 0.5/len(game)
+        discount_rate = 1 
         if len(game) % 2 == 0: 
             win = 1
         else:
             win = -1
         for index in range(0, len(game) - 1):
             reward = win*reward
+            discount = init_discount*discount_rate
+            discount_rate += discount_step
             row, col = from_states[game[index]], to_states[game[index+1]]
             if index != len(game) - 2:
                 nextQ = np.nanmax(state_matrix[from_states[game[index+1]]])
-            update_value = learning_rate*reward
+            update_value = learning_rate*reward/(len(game) - index)
             if not np.isnan(nextQ):
                 update_value += update_value + discount*learning_rate*nextQ
             if not np.isnan(state_matrix[row, col]):
                 update_value += (1 - learning_rate) * state_matrix[row, col]
             state_matrix[row, col] = update_value
             win *= -1
-            learning_rate /= learning_decay
-            discount *= discount_rate
-            discount_rate += discount_step
-            learning_decay += decay_step
     return from_states, to_states, state_matrix
 
 
