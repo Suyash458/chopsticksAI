@@ -117,8 +117,7 @@ def play_game():
         transitions = get_possible_transitions(p1, p2, turn)
         transition = transitions[random.randint(0, (len(transitions) - 1))]
         game.append(transition)
-        if len(game) > 200:
-            print "Here"
+        if len(game) > 80:
             play_game()
         turn = not turn
         p1, p2 = transition
@@ -130,7 +129,7 @@ def condition_matrix(from_states, to_states, state_matrix):
     for state in from_states.keys():
         for transition in get_possible_transitions(state[0], state[1], True):
             if not any(transition[1]):
-                state_matrix[from_states[state], to_states[transition]] = 1000
+                state_matrix[from_states[state], to_states[transition]] = 100
     return state_matrix
 
 def train(num_tries=100000):
@@ -142,32 +141,41 @@ def train(num_tries=100000):
         update score negatively for every odd pair
     if loss:
         do the opposite
+    decrease learning rate and increase discount with time
     '''
     get_indices()
     from_states, to_states, state_matrix = get_matrix()
-    discount = 0.6
-    learning_rate = 0.75
-    reward = 250
+    discount = 0.25
+    discount_step = 2.0/num_tries
+    discount_rate = 1 + discount_step
+    learning_rate = 0.9
+    learning_decay_step = 1.0/num_tries
+    learning_decay = 1 + decay_step
     state_matrix = condition_matrix(from_states, to_states, state_matrix)
     for i in xrange(num_tries):
         game = play_game()
+        reward = 250/len(game)
         if len(game) % 2 == 0: 
             win = 1
         else:
             win = -1
         for index in range(0, len(game) - 1):
             reward = win*reward
-            win *= -1
             row, col = from_states[game[index]], to_states[game[index+1]]
             if index != len(game) - 2:
                 nextQ = np.nanmax(state_matrix[from_states[game[index+1]]])
-            update_value = learning_rate*(reward/(len(game) - index))
+            update_value = learning_rate*reward
             if not np.isnan(nextQ):
-                update_value += learning_rate*(update_value + nextQ)
+                update_value += update_value + discount*learning_rate*nextQ
             if not np.isnan(state_matrix[row, col]):
                 update_value += (1 - learning_rate) * state_matrix[row, col]
             state_matrix[row, col] = update_value
-    return state_matrix
+            win *= -1
+            learning_rate /= learning_decay
+            discount *= discount_rate
+            discount_rate += discount_step
+            learning_decay += decay_step
+    return from_states, to_states, state_matrix
 
 
 
