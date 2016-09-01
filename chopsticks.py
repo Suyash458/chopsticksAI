@@ -117,8 +117,8 @@ def play_game():
         transitions = get_possible_transitions(p1, p2, turn)
         transition = transitions[random.randint(0, (len(transitions) - 1))]
         game.append(transition)
-        if len(game) > 80:
-            play_game()
+        if len(game) > 30:
+            return []
         turn = not turn
         p1, p2 = transition
         if not any(p1) or not any(p2):
@@ -129,10 +129,17 @@ def condition_matrix(from_states, to_states, state_matrix):
     for state in from_states.keys():
         for transition in get_possible_transitions(state[0], state[1], True):
             if not any(transition[1]):
-                state_matrix[from_states[state], to_states[transition]] = 2000
+                state_matrix[from_states[state], to_states[transition]] = 1000000
+            if not any(transition[0]):
+                state_matrix[from_states[state], to_states[transition]] = -1000000
+        for transition in get_possible_transitions(state[0], state[1], False):
+            if not any(transition[1]):
+                state_matrix[from_states[state], to_states[transition]] = -1000000
+            if not any(transition[0]):
+                state_matrix[from_states[state], to_states[transition]] = 1000000                  
     return state_matrix
 
-def train(num_tries=100000):
+def train(num_tries=10000):
     '''
     Train with random games 
     p1 moves first for now 
@@ -144,37 +151,45 @@ def train(num_tries=100000):
     decrease learning rate and increase discount with time
     '''
     get_indices()
+    win=1
     from_states, to_states, state_matrix = get_matrix()
-    init_learning_rate = 0.8
-    learning_decay_step = 1.0/num_tries
-    learning_decay = 1 
-    reward = 350
+    discount = 0.2
+    init_reward = 300
+    init_learning_rate = 0.9
     state_matrix = condition_matrix(from_states, to_states, state_matrix)
+    learning_decay = 1 
+    learning_decay_step = 1.0/(num_tries)
     for i in xrange(num_tries):
-        learning_rate = init_learning_rate/learning_decay  
-        init_discount = 0.5
-        #learning_decay += learning_decay_step
         game = play_game()
-        discount_step = 0.5/len(game)
-        discount_rate = 1 
+        learning_rate = init_learning_rate/learning_decay  
+        learning_decay += learning_decay_step
         if len(game) % 2 == 0: 
             win = 1
         else:
             win = -1
         for index in range(0, len(game) - 1):
-            reward = win*reward
-            discount = init_discount*discount_rate
-            discount_rate += discount_step
+            reward = win*init_reward
             row, col = from_states[game[index]], to_states[game[index+1]]
+            nextQ = np.nan
             if index != len(game) - 2:
-                nextQ = np.nanmax(state_matrix[from_states[game[index+1]]])
-            update_value = learning_rate*reward/(len(game) - index)
+                if win == 1:
+                    nextQ = np.nanmax(state_matrix[from_states[game[index+1]]])
+                else:
+                    nextQ = np.nanmin(state_matrix[from_states[game[index+1]]]) 
+            else:
+                if win == 1:
+                    nextQ = 1000000
+                else:
+                    nextQ = -1000000                 
+            update_value = learning_rate*reward
             if not np.isnan(nextQ):
                 update_value += update_value + discount*learning_rate*nextQ
             if not np.isnan(state_matrix[row, col]):
                 update_value += (1 - learning_rate) * state_matrix[row, col]
-            state_matrix[row, col] = update_value
+            print game[index], game[index+1], win, learning_rate, discount, nextQ,  reward, state_matrix[row][col], update_value
+            state_matrix[row][col] = update_value
             win *= -1
+        print " "
     return from_states, to_states, state_matrix
 
 
