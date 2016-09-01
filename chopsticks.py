@@ -139,7 +139,7 @@ def condition_matrix(from_states, to_states, state_matrix):
                 state_matrix[from_states[state], to_states[transition]] = 1000000                  
     return state_matrix
 
-def train(num_tries=10000):
+def train(num_tries=100000):
     '''
     Train with random games 
     p1 moves first for now 
@@ -186,10 +186,10 @@ def train(num_tries=10000):
                 update_value += update_value + discount*learning_rate*nextQ
             if not np.isnan(state_matrix[row, col]):
                 update_value += (1 - learning_rate) * state_matrix[row, col]
-            print game[index], game[index+1], win, learning_rate, discount, nextQ,  reward, state_matrix[row][col], update_value
+            #print game[index], game[index+1], win, learning_rate, discount, nextQ,  reward, state_matrix[row][col], update_value
             state_matrix[row][col] = update_value
             win *= -1
-        print " "
+        #print " "
     return from_states, to_states, state_matrix
 
 
