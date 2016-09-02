@@ -86,13 +86,14 @@ def get_possible_transitions(p1, p2, turn):
     if b and c:
         transitions.append([p1, (b+c, d)]) if b+c < 5 else transitions.append([p1, (0, d)])
     if p1.__contains__(0):
-        for partition in partitionsHash[sum(p1)]:
-            if not partition.__contains__(0):
-                transitions.append([partition, p2])
-    else:
-        for partition in partitionsHash[sum(p1)]:
-            if not partition.__contains__(0) and partition != p1:
-                transitions.append([partition, p2])
+        if sum(p1) % 2 == 0:
+            for partition in partitionsHash[sum(p1)]:
+                if not partition.__contains__(0):
+                    transitions.append([partition, p2])
+    #else:
+    #    for partition in partitionsHash[sum(p1)]:
+    #        if not partition.__contains__(0) and partition != p1:
+    #            transitions.append([partition, p2])
         #transitions.append([(a+b, b), p2]) if a+b < 5 else transitions.append([(0, b), p2])
         #transitions.append([(a, a+b), p2]) if a+b < 5 else transitions.append([(a, 0), p2])
     if not turn:
@@ -101,7 +102,29 @@ def get_possible_transitions(p1, p2, turn):
     transitions = [tuple(transition) for transition in transitions]
     return list(set(transitions))
 
-def play_game():
+
+def play_game_better(from_states, to_states, state_matrix, turn=True):
+    game = []
+    p1 = (1, 1)
+    p2 = (1, 1)
+    game.append((p1, p2))
+    while True:
+        transition = get_best_move((p1, p2), from_states, to_states, state_matrix, turn)
+        if transition:
+            game.append(transition)
+        else:
+            transitions = get_possible_transitions(p1, p2, turn)
+            transition = transitions[random.randint(0, (len(transitions) - 1))]
+            game.append(transition)
+        if len(game) > 30:
+            return []
+        turn = not turn
+        p1, p2 = transition
+        if not any(p1) or not any(p2):
+            break
+    return game
+
+def play_game(turn=True):
     '''
     Start with [(1, 1), (1, 1)]
     Generate all possible transitions 
@@ -112,7 +135,6 @@ def play_game():
     p1 = (1, 1)
     p2 = (1, 1)
     game.append((p1, p2))
-    turn = True
     while True:
         transitions = get_possible_transitions(p1, p2, turn)
         transition = transitions[random.randint(0, (len(transitions) - 1))]
@@ -139,22 +161,70 @@ def condition_matrix(from_states, to_states, state_matrix):
                 state_matrix[from_states[state], to_states[transition]] = 1000000                  
     return state_matrix
 
-def get_best_move(state, from_states, to_states, state_matrix):
+def get_best_move(state, from_states, to_states, state_matrix, turn=True):
     '''
     Find out possible transitions
     Get the maximum reward for those
     return the best transition
     '''
+    if not turn:
+        state = (state[1], state[0])
     transitions = get_possible_transitions(state[0], state[1], True)
     indices = [to_states[i] for i in transitions]
-    best_index = np.nanargmax(state_matrix[from_states[state]][indices])
+    try:
+        best_index = np.nanargmax(state_matrix[from_states[state]][indices])
+    except:
+        return None
     best_trans = None
     for trans in transitions:
         if to_states[trans] == indices[best_index]:
             best_trans = trans
+    if not turn:
+        best_trans = (best_trans[1], best_trans[0])
     return best_trans
 
-def train(num_tries=100000):
+def train_better(num_tries=10000):
+    from_states, to_states, state_matrix = train(10000)
+    get_indices() 
+    win=1 
+    reward = 50000
+    discount = 0.8
+    init_learning_rate = 0.9
+    learning_decay = 1 
+    learning_decay_step = 0.6/(num_tries)
+    for i in xrange(num_tries):
+        game = play_game_better(from_states, to_states, state_matrix, True)
+        learning_rate = init_learning_rate/learning_decay  
+        learning_decay += learning_decay_step
+        if len(game) % 2 == 0:
+            win = 1
+        else:
+            win = -1
+        for index in range(0, len(game) - 1):
+            row, col = from_states[game[index]], to_states[game[index+1]]
+            nextQ = np.nan
+            if index != len(game) - 2:
+                if win == 1:
+                    nextQ = np.nanmax(state_matrix[from_states[game[index+1]]])
+                else:
+                    nextQ = -1 * np.nanmax(state_matrix[from_states[game[index+1]]]) 
+            else:
+                if win == 1:
+                    nextQ = 1000000
+                else:
+                    nextQ = -1000000               
+            update_value = win*learning_rate*reward
+            if not np.isnan(nextQ):
+                update_value += update_value + discount*learning_rate*nextQ
+            if not np.isnan(state_matrix[row, col]):
+                update_value += (1 - learning_rate) * state_matrix[row, col]
+            #print game[index], game[index+1], win, learning_rate, discount, nextQ,  reward, state_matrix[row][col], update_value
+            state_matrix[row][col] = update_value
+            win *= -1
+        #print " "
+    return from_states, to_states, state_matrix 
+
+def train(num_tries=10000):
     '''
     Train with random games 
     p1 moves first for now 
@@ -168,17 +238,18 @@ def train(num_tries=100000):
     get_indices()
     win=1
     from_states, to_states, state_matrix = get_matrix()
-    discount = 0.4
     reward = 5000
+    discount = 0.8
     init_learning_rate = 0.9
     state_matrix = condition_matrix(from_states, to_states, state_matrix)
     learning_decay = 1 
-    learning_decay_step = 0.5/(num_tries)
+    learning_decay_step = 1/(num_tries)
+    game_func = play_game
     for i in xrange(num_tries):
         game = play_game()
         learning_rate = init_learning_rate/learning_decay  
         learning_decay += learning_decay_step
-        if len(game) % 2 == 0: 
+        if len(game) % 2 == 0:
             win = 1
         else:
             win = -1
@@ -189,7 +260,7 @@ def train(num_tries=100000):
                 if win == 1:
                     nextQ = np.nanmax(state_matrix[from_states[game[index+1]]])
                 else:
-                    nextQ = np.nanmin(state_matrix[from_states[game[index+1]]]) 
+                    nextQ = -1 * np.nanmax(state_matrix[from_states[game[index+1]]]) 
             else:
                 if win == 1:
                     nextQ = 1000000
@@ -197,7 +268,7 @@ def train(num_tries=100000):
                     nextQ = -1000000                 
             update_value = win*learning_rate*reward/(len(game) - index)
             if not np.isnan(nextQ):
-                update_value += update_value + win*discount*learning_rate*nextQ
+                update_value += update_value + discount*learning_rate*nextQ
             if not np.isnan(state_matrix[row, col]):
                 update_value += (1 - learning_rate) * state_matrix[row, col]
             #print game[index], game[index+1], win, learning_rate, discount, nextQ,  reward, state_matrix[row][col], update_value
@@ -205,10 +276,3 @@ def train(num_tries=100000):
             win *= -1
         #print " "
     return from_states, to_states, state_matrix
-
-
-
-
-
-
-
