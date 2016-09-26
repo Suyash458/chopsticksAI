@@ -2,7 +2,7 @@ Ongoing project to automate the game of [chopsticks](https://en.wikipedia.org/wi
 Trained.npy contains a trained state matrix which seems to be giving somewhat optimal moves
 
 Initial state matrix
-![alt](http://imgur.com/TOzFdPh.png)
+![alt](http://imgur.com/ZnLXxvk.png)
 
-State matrix after training on 100,000 random games
-![alt](http://imgur.com/TZClnmA.png)
+State matrix after training on 10,000 random games
+![alt](http://imgur.com/AqmTtcl.png)

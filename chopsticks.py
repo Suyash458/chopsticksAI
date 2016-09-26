@@ -41,6 +41,7 @@ def get_matrix():
                         to_index += 1
                         from_index += 1
     state_matrix = np.zeros((len(from_states), len(to_states)))
+    condition_matrix()
     state_matrix[:] = np.nan
     #return from_states, to_states, state_matrix
 
@@ -179,8 +180,6 @@ def update_state(current_state, next_state, reward, learning_rate, discount, swa
 
 def train_better(num_tries=10000):
     train(10000)
-    get_matrix()
-    condition_matrix()
     discount = 0.7
     init_learning_rate = 0.9
     learning_decay = 1 
@@ -209,7 +208,6 @@ def train(num_tries=10000):
     decrease learning rate and increase discount with time
     '''
     get_matrix()
-    condition_matrix()
     discount = 0.7
     init_learning_rate = 0.9
     learning_decay = 1 
